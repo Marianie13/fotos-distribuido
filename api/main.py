@@ -6,6 +6,7 @@ import httpx, psycopg, os, socket
 
 DB_URL = os.getenv("DB_URL", "postgresql://fotos:fotos123@db:5432/fotosdb")
 ALMACEN = os.getenv("ALMACEN_URL", "http://almacenamiento:8000")
+NOTIF = os.getenv("NOTIF_URL", "http://notificaciones:8000")
 INSTANCIA = socket.gethostname()
 
 def conectar():
@@ -39,6 +40,22 @@ async def subir(autor: str = Form(...), descripcion: str = Form(""),
         fila = con.execute(
             "INSERT INTO fotos (autor, descripcion, archivo) VALUES (%s, %s, %s) RETURNING id",
             (autor, descripcion, nombre)).fetchone()
+        evento = {"tipo": "nueva_foto", "id": fila[0], "autor": autor,
+              "descripcion": descripcion, "url": f"/imagenes/{nombre}",
+              "atendido_por": INSTANCIA}
+    try:
+        async with httpx.AsyncClient(timeout=2) as cliente:
+            await cliente.post(f"{NOTIF}/eventos", json=evento)
+    except httpx.HTTPError:
+        pass
+        evento = {"tipo": "nueva_foto", "id": fila[0], "autor": autor,
+              "descripcion": descripcion, "url": f"/imagenes/{nombre}",
+              "atendido_por": INSTANCIA}
+    try:
+        async with httpx.AsyncClient(timeout=2) as cliente:
+            await cliente.post(f"{NOTIF}/eventos", json=evento)
+    except httpx.HTTPError:
+        pass
     return {"id": fila[0], "archivo": nombre, "atendido_por": INSTANCIA}
 
 @app.get("/fotos")
@@ -61,3 +78,4 @@ async def imagen(nombre: str):
 @app.get("/salud")
 def salud():
     return {"estado": "ok", "servicio": "api", "instancia": INSTANCIA}
+

@@ -27,6 +27,9 @@ services:
       almacenamiento:
         condition: service_started
 
+  notificaciones:
+    build: ./notificaciones
+
   nginx:
     image: nginx:alpine
     volumes:
@@ -35,6 +38,7 @@ services:
       - "8080:80"
     depends_on:
       - api
+      - notificaciones
 
 volumes:
   db_data:
