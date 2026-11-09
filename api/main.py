@@ -23,7 +23,7 @@ async def lifespan(app):
             creada TIMESTAMP DEFAULT NOW())""")
     yield
 
-app = FastAPI(title="API de Fotos", lifespan=lifespan)
+app = FastAPI(title="API de Fotos", lifespan=lifespan, root_path="/api")
 app.add_middleware(CORSMiddleware, allow_origins=["*"],
                    allow_methods=["*"], allow_headers=["*"])
 

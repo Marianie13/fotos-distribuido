@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FotoRed — Sistema Distribuido</title>
+<style>
+  :root { --fondo:#0f172a; --tarjeta:#1e293b; --texto:#e2e8f0; --suave:#94a3b8; --acento:#f472b6; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:system-ui,sans-serif; background:var(--fondo); color:var(--texto); }
+  header { padding:16px 24px; display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid #334155; }
+  h1 { margin:0; font-size:1.4rem; } h1 span { color:var(--acento); }
+  #estado { font-size:.85rem; color:var(--suave); }
+  main { max-width:1000px; margin:auto; padding:24px; }
+  form { background:var(--tarjeta); padding:16px; border-radius:12px; display:grid; gap:10px; grid-template-columns:1fr 1fr; }
+  input { padding:10px; border-radius:8px; border:1px solid #334155; background:var(--fondo); color:var(--texto); }
+  input[type=file], button { grid-column:span 2; }
+  button { padding:12px; border:0; border-radius:8px; background:var(--acento); color:#0f172a; font-weight:700; cursor:pointer; }
+  #info { color:var(--suave); font-size:.85rem; margin:8px 0 20px; }
+  #galeria { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:16px; }
+  .foto { background:var(--tarjeta); border-radius:12px; overflow:hidden; }
+  .foto img { width:100%; height:180px; object-fit:cover; display:block; }
+  .foto div { padding:10px; font-size:.9rem; }
+  .foto small { color:var(--suave); display:block; margin-top:4px; }
+  .nueva { animation:brillo 2s; }
+  @keyframes brillo { from { box-shadow:0 0 0 3px var(--acento); } to { box-shadow:none; } }
+  #aviso { position:fixed; bottom:20px; right:20px; background:var(--acento); color:#0f172a; padding:12px 16px; border-radius:10px; font-weight:600; display:none; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Foto<span>Red</span></h1>
+  <div id="estado">⚪ Conectando...</div>
+</header>
+<main>
+  <form id="formulario">
+    <input name="autor" placeholder="Tu nombre" required>
+    <input name="descripcion" placeholder="Descripción">
+    <input type="file" name="archivo" accept="image/*" required>
+    <button>Subir foto</button>
+  </form>
+  <p id="info">Sube una foto para ver qué réplica te atiende.</p>
+  <section id="galeria"></section>
+</main>
+<div id="aviso"></div>
+
+<script>
+const galeria = document.getElementById("galeria");
+const estado = document.getElementById("estado");
+const info = document.getElementById("info");
+const ids = new Set();
+let ws;
+
+function tarjeta(f, nueva) {
+  if (ids.has(f.id)) return;
+  ids.add(f.id);
+  const art = document.createElement("article");
+  art.className = "foto" + (nueva ? " nueva" : "");
+  const img = document.createElement("img");
+  img.src = "/api" + f.url;
+  img.alt = f.descripcion || "foto";
+  const texto = document.createElement("div");
+  texto.textContent = f.descripcion || "(sin descripción)";
+  const autor = document.createElement("small");
+  autor.textContent = "por " + f.autor;
+  texto.appendChild(autor);
+  art.append(img, texto);
+  nueva ? galeria.prepend(art) : galeria.append(art);
+}
+
+async function cargar() {
+  const r = await fetch("/api/fotos");
+  const datos = await r.json();
+  datos.fotos.forEach(f => tarjeta(f, false));
+}
+
+function avisar(msg) {
+  const a = document.getElementById("aviso");
+  a.textContent = msg;
+  a.style.display = "block";
+  setTimeout(() => a.style.display = "none", 3000);
+}
+
+function conectar() {
+  const proto = location.protocol === "https:" ? "wss" : "ws";
+  ws = new WebSocket(`${proto}://${location.host}/ws`);
+  ws.onopen = () => estado.textContent = "🟢 En vivo";
+  ws.onclose = () => {
+    estado.textContent = "🔴 Reconectando...";
+    setTimeout(conectar, 2000);
+  };
+  ws.onmessage = (e) => {
+    const ev = JSON.parse(e.data);
+    if (ev.tipo === "nueva_foto") {
+      tarjeta(ev, true);
+      avisar(`📸 ${ev.autor} subió una foto`);
+    }
+  };
+}
+
+document.getElementById("formulario").onsubmit = async (e) => {
+  e.preventDefault();
+  const r = await fetch("/api/fotos", { method: "POST", body: new FormData(e.target) });
+  const datos = await r.json();
+  if (!r.ok) { info.textContent = "❌ " + JSON.stringify(datos.detail); return; }
+  info.textContent = `✅ Foto #${datos.id} guardada · atendida por la réplica ${datos.atendido_por}`;
+  e.target.reset();
+  if (ws.readyState !== WebSocket.OPEN) cargar();
+};
+
+cargar();
+conectar();
+</script>
+</body>
+</html>
