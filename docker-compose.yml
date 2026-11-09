@@ -1,0 +1,22 @@
+services:
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: fotos
+      POSTGRES_PASSWORD: fotos123
+      POSTGRES_DB: fotosdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - db_data:/var/lib/postgresql/data
+
+  almacenamiento:
+    build: ./almacenamiento
+    volumes:
+      - fotos_data:/data
+    ports:
+      - "8001:8000"
+
+volumes:
+  db_data:
+  fotos_data:
