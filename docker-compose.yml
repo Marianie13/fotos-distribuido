@@ -5,8 +5,6 @@ services:
       POSTGRES_USER: fotos
       POSTGRES_PASSWORD: fotos123
       POSTGRES_DB: fotosdb
-    ports:
-      - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
     healthcheck:
@@ -18,18 +16,25 @@ services:
     build: ./almacenamiento
     volumes:
       - fotos_data:/data
-    ports:
-      - "8001:8000"
 
   api:
     build: ./api
+    deploy:
+      replicas: 2
     depends_on:
       db:
         condition: service_healthy
       almacenamiento:
         condition: service_started
+
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     ports:
-      - "8002:8000"
+      - "8080:80"
+    depends_on:
+      - api
 
 volumes:
   db_data:
