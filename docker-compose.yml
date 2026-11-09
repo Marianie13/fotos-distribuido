@@ -9,6 +9,10 @@ services:
       - "5432:5432"
     volumes:
       - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U fotos -d fotosdb"]
+      interval: 3s
+      retries: 10
 
   almacenamiento:
     build: ./almacenamiento
@@ -16,6 +20,16 @@ services:
       - fotos_data:/data
     ports:
       - "8001:8000"
+
+  api:
+    build: ./api
+    depends_on:
+      db:
+        condition: service_healthy
+      almacenamiento:
+        condition: service_started
+    ports:
+      - "8002:8000"
 
 volumes:
   db_data:
